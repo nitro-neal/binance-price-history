@@ -6,49 +6,61 @@ const moment = require("moment");
 
 let coinPriceMaps = new Map();
 
+// https://alligator.io/nodejs/req-object-in-expressjs/
+
 /* GET home page. */
-router.get("/", function(req, res, next) {
-  res.render("index", { title: "Express" });
+router.get("/top-performers", function(req, res, next) {
+  // res.render("index", { title: "Express" });
+  console.log(req);
+  console.log(req.params);
+  console.log("DAYS");
+  console.log(req.params.days);
+
+  let topPerformers = getTopPerformers(30);
+  // res.render("index", topPerformers);
+  // res.render(topPerformers);
+  // return topPerformers;
+  res.json(topPerformers);
 });
+
+console.log("index started");
 
 start();
 
 function getTopPerformers(numberOfDays) {
-  // coinPriceMaps.forEach((key, value) => {
-  //   console.log(key);
-  // });
-
-  // for (const [key, value] of Object.entries(coinPriceMaps)) {
-  //   console.log(key, value);
-  // }
-
-  // for (let key in coinPriceMaps) {
-  //   console.log(key);
-  // }
-
-  // for (const entry of coinPriceMaps.entries()) {
-  //   console.log(entry);
-  // }
-
+  let percentChanges = [];
   for (const [key, value] of coinPriceMaps.entries()) {
-    // console.log(key, value);
     if (value.length < numberOfDays - 1) {
       // not enough days recorded yet
       continue;
     }
 
     // For example, if you buy a stock today for $50, and tomorrow the stock is worth $52, your percentage gain is 4% ([$52 - $50] / $50).
-
-    console.log(" start " + key);
-    console.log(value);
-    console.log(value[value.length - 1]);
-    console.log(value[value.length - numberOfDays]);
     let percentChangeFromToday =
       (value[value.length - 1] - value[value.length - numberOfDays]) /
       value[value.length - numberOfDays];
 
-    console.log(key + " ---> " + (percentChangeFromToday * 100).toFixed(2));
+    let friendlyName = key.split("-");
+
+    let keyPercent = {
+      friendlyName: friendlyName[0],
+      baseAssetName: key,
+      percentChange: (percentChangeFromToday * 100).toFixed(2)
+    };
+
+    percentChanges.push(keyPercent);
   }
+
+  // console.log("THIS IS THE FINAL PRINT");
+  percentChanges.sort((a, b) => b.percentChange - a.percentChange);
+
+  // for (let i = 0; i < percentChanges.length; i++) {
+  //   console.log(percentChanges[i]);
+  // }
+
+  console.log("get top performers called ");
+
+  return percentChanges;
 }
 
 async function generateCoinPriceMaps() {
@@ -65,14 +77,11 @@ async function generateCoinPriceMaps() {
     let workingDate = new moment();
     for (let i = 30; i > 0; i--) {
       workingDate.subtract(1, "days");
-      // console.log(yesterday);
-      // console.log(workingDate);
       let path = getFilePath(workingDate, coin.baseAssetName);
 
       try {
-        // console.log("reading path:   " + path);
         let dayData = JSON.parse(fs.readFileSync(path, "utf-8"));
-        prices.push(dayData.usdPrice);
+        prices.unshift(dayData.usdPrice);
       } catch (e) {
         console.log("price data does not go back that far - " + path);
       }
@@ -81,8 +90,6 @@ async function generateCoinPriceMaps() {
     coinPriceMaps.set(coin.baseAssetName, prices);
   }
 
-  // console.log("FTM DATA");
-  // console.log(coinPriceMaps.get("FTM-A64"));
   getTopPerformers(30);
 }
 
@@ -240,30 +247,13 @@ function saveCoinInfo(baseAssetName, historicPrice, bnbHistoricPriceMap) {
         bnbPrice: bnbHistoricPriceMap.get(year + "-" + month + "-" + d)
       };
 
-      // console.log(dayObject);
-
       let stream = fs.createWriteStream(filePath);
       stream.once("open", function(fd) {
         stream.write(JSON.stringify(dayObject));
         stream.end();
       });
     }
-
-    // console.log(historicPriceDay);
-    //historicPric
-    //doesDateExist()
   }
-
-  // let path = getFilePath(date, baseAssetName);
-
-  // console.log("The file was saved!");
-
-  // let stream = fs.createWriteStream("./pricehistory/my_file.txt");
-  // stream.once("open", function(fd) {
-  //   stream.write("My first row\n");
-  //   stream.write("My second row\n");
-  //   stream.end();
-  // });
 }
 
 function msleep(n) {
