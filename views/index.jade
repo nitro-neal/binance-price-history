@@ -1,5 +1,25 @@
 extends layout
 
+
+
 block content
-  h1= title
-  p Welcome to #{title}
+  script.
+    $(document).ready(function () {
+      $('#dtBasicExample').DataTable({"paging" : false, "searching": true});
+      //- $('.dataTables_length').addClass('bs-select');
+    });
+
+  div
+    table#dtBasicExample.table.table-striped.table-bordered
+      thead
+        tr
+          each tableHeader in tableHeaders
+            th 
+              p=tableHeader
+        //- th Posts
+      tbody
+        each coin in topPerformers
+          tr
+            each coinAttribute in coin
+              td 
+                p=coinAttribute

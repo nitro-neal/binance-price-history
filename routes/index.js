@@ -6,61 +6,115 @@ const moment = require("moment");
 
 let coinPriceMaps = new Map();
 
-// https://alligator.io/nodejs/req-object-in-expressjs/
+router.get("/", function(req, res, next) {
+  let topPerformers = getBaseCoinMetrics();
+  let tableHeaders = getTableHeaders(topPerformers);
+  res.render("index", {
+    title: "Express",
+    tableHeaders: tableHeaders,
+    topPerformers: topPerformers
+  });
+});
 
-/* GET home page. */
-router.get("/top-performers", function(req, res, next) {
-  // res.render("index", { title: "Express" });
-  console.log(req);
-  console.log(req.params);
-  console.log("DAYS");
-  console.log(req.params.days);
-
-  let topPerformers = getTopPerformers(30);
-  // res.render("index", topPerformers);
-  // res.render(topPerformers);
-  // return topPerformers;
+router.get("/api/performance", function(req, res, next) {
+  let topPerformers = getBaseCoinMetrics();
   res.json(topPerformers);
 });
 
-console.log("index started");
-
 start();
 
-function getTopPerformers(numberOfDays) {
-  let percentChanges = [];
-  for (const [key, value] of coinPriceMaps.entries()) {
-    if (value.length < numberOfDays - 1) {
-      // not enough days recorded yet
-      continue;
-    }
+function getTableHeaders(coinMetrics) {
+  const keys = Object.keys(coinMetrics[0]);
+  console.log(keys);
+  return keys;
+}
 
-    // For example, if you buy a stock today for $50, and tomorrow the stock is worth $52, your percentage gain is 4% ([$52 - $50] / $50).
-    let percentChangeFromToday =
-      (value[value.length - 1] - value[value.length - numberOfDays]) /
-      value[value.length - numberOfDays];
+function getBaseCoinMetrics() {
+  let coinMetrics = [];
+  for (const [key, value] of coinPriceMaps.entries()) {
+    let coinPrices = value.prices;
+    let assetVolumes = value.assetVolumes;
+    let numberOfTrades = value.numberOfTrades;
+    let thirtyDayPerformance = getPerformaceOverDays(30, coinPrices);
+    let sevenDayPerformance = getPerformaceOverDays(7, coinPrices);
+    // let threeDayPerformance = getPerformaceOverDays(3, coinPrices);
+    let fourteenDayPerformance = getPerformaceOverDays(14, coinPrices);
+    let oneDayPerformance = getPerformaceOverDays(1, coinPrices);
+    let thirtyDayMarketVolume = getMarketVolume(30, assetVolumes);
+    let oneDayMarketVolume = getMarketVolume(1, assetVolumes);
+    let thirtyDayNumberOfTrades = getNumberOfTrades(30, numberOfTrades);
+    let oneDayNumberOfTrades = getNumberOfTrades(1, numberOfTrades);
+
+    // console.log(key);
+    if (key === "FTM-A64") {
+      console.log("DEBUG");
+      let percentChangeFromToday =
+        (parseFloat(coinPrices[coinPrices.length - 1]) -
+          parseFloat(coinPrices[coinPrices.length - 14])) /
+        parseFloat(coinPrices[coinPrices.length - 14]);
+
+      console.log(parseFloat(coinPrices[coinPrices.length - 1]));
+      console.log(parseFloat(coinPrices[coinPrices.length - 14]));
+
+      console.log(percentChangeFromToday);
+    }
 
     let friendlyName = key.split("-");
 
-    let keyPercent = {
+    let coinMetric = {
       friendlyName: friendlyName[0],
       baseAssetName: key,
-      percentChange: (percentChangeFromToday * 100).toFixed(2)
+      oneDayPerformance: oneDayPerformance,
+      // threeDayPerformance: threeDayPerformance,
+      sevenDayPerformance: sevenDayPerformance,
+      fourteenDayPerformance: fourteenDayPerformance,
+      thirtyDayPercentChange: thirtyDayPerformance,
+      thirtyDayMarketVolume: Math.round(thirtyDayMarketVolume),
+      oneDayMarketVolume: Math.round(oneDayMarketVolume),
+      thirtyDayNumberOfTrades: thirtyDayNumberOfTrades,
+      oneDayNumberOfTrades: oneDayNumberOfTrades
     };
 
-    percentChanges.push(keyPercent);
+    coinMetrics.push(coinMetric);
   }
 
-  // console.log("THIS IS THE FINAL PRINT");
-  percentChanges.sort((a, b) => b.percentChange - a.percentChange);
+  return coinMetrics;
+}
 
-  // for (let i = 0; i < percentChanges.length; i++) {
-  //   console.log(percentChanges[i]);
-  // }
+function getMarketVolume(numberOfDays, coinData) {
+  return additive(numberOfDays, coinData);
+}
 
-  console.log("get top performers called ");
+function getNumberOfTrades(numberOfDays, coinData) {
+  return additive(numberOfDays, coinData);
+}
 
-  return percentChanges;
+function additive(numberOfDays, coinData) {
+  let marketVolume = 0;
+  let counter = 0;
+  for (let i = coinData.length - 1; i >= 0; i--) {
+    marketVolume += coinData[i];
+    counter++;
+    if (counter === numberOfDays) {
+      return marketVolume;
+    }
+  }
+
+  return marketVolume;
+}
+
+function getPerformaceOverDays(numberOfDays, coinData) {
+  let percentChangeFromToday = -999;
+  if (coinData.length < numberOfDays - 1) {
+    // not enough days recorded yet
+    return percentChangeFromToday;
+  }
+
+  percentChangeFromToday =
+    (parseFloat(coinData[coinData.length - 1]) -
+      parseFloat(coinData[coinData.length - numberOfDays])) /
+    parseFloat(coinData[coinData.length - numberOfDays]);
+  return (percentChangeFromToday * 100).toFixed(2);
 }
 
 async function generateCoinPriceMaps() {
@@ -68,6 +122,8 @@ async function generateCoinPriceMaps() {
 
   for (let i = 0; i < coinsJson.data.length; i++) {
     let prices = [];
+    let assetVolume = [];
+    let numberOfTrades = [];
     let coin = coinsJson.data[i];
 
     if (coin.baseAssetName === "BNB" || coin.baseAssetName === "BTCB-1DE") {
@@ -82,22 +138,26 @@ async function generateCoinPriceMaps() {
       try {
         let dayData = JSON.parse(fs.readFileSync(path, "utf-8"));
         prices.unshift(dayData.usdPrice);
+        assetVolume.unshift(parseFloat(dayData.assetVolume));
+        numberOfTrades.unshift(parseInt(dayData.numberOfTrades));
       } catch (e) {
         console.log("price data does not go back that far - " + path);
       }
     }
 
-    coinPriceMaps.set(coin.baseAssetName, prices);
+    coinPriceMaps.set(coin.baseAssetName, {
+      prices: prices,
+      assetVolumes: assetVolume,
+      numberOfTrades: numberOfTrades
+    });
   }
-
-  getTopPerformers(30);
 }
 
 // https://dex.binance.org/api/v1/klines?symbol=FTM-A64_BNB&interval=5m
 async function start() {
   let bnbHistoricPriceMap = await getBnbHistoricPriceMap();
 
-  console.log("started");
+  console.log("Performance Data Compute Started");
 
   let coinsJson = await axios.get("https://dex.binance.org/api/v1/ticker/24hr");
 

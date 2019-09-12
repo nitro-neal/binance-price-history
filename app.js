@@ -18,6 +18,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
+// app.use(express.static('public'));
 
 app.use("/", indexRouter);
 app.use("/users", usersRouter);
@@ -38,6 +39,11 @@ app.use(function(err, req, res, next) {
   res.render("error");
 });
 
-var server = app.listen(3000, function() {});
+const port = process.env.PORT || 8080;
+app.listen(port, () => {
+  console.log("Binance Chain Metrics listening on port", port);
+});
+
+//var server = app.listen(3000, function() {});
 
 module.exports = app;
