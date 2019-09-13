@@ -18,6 +18,11 @@ router.get("/", function(req, res, next) {
 
 router.get("/api/performance", function(req, res, next) {
   let topPerformers = getBaseCoinMetrics();
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
   res.json(topPerformers);
 });
 
