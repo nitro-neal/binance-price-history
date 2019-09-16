@@ -156,6 +156,31 @@ async function generateCoinPriceMaps() {
       numberOfTrades: numberOfTrades
     });
   }
+
+  let bnbPricesMap = await getBnbHistoricPriceMap();
+
+  // now do bnb
+  let bnbPrices = [];
+  let bnbAssetVolume = [];
+  let bnbNumberOfTrades = [];
+  let workingDate = new moment();
+  for (let i = 30; i > 0; i--) {
+    workingDate.subtract(1, "days");
+    let year = workingDate.format("YYYY");
+    let month = workingDate.format("MM");
+    let d = workingDate.format("DD");
+
+    let bnbPriceOnDay = bnbPricesMap.get(year + "-" + month + "-" + d);
+    bnbPrices.unshift(bnbPriceOnDay);
+    bnbAssetVolume.unshift(parseFloat(0));
+    bnbNumberOfTrades.unshift(parseInt(0));
+  }
+
+  coinPriceMaps.set("BNB", {
+    prices: bnbPrices,
+    assetVolumes: bnbAssetVolume,
+    numberOfTrades: bnbNumberOfTrades
+  });
 }
 
 // https://dex.binance.org/api/v1/klines?symbol=FTM-A64_BNB&interval=5m
